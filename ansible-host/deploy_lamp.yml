@@ -1,0 +1,44 @@
+---
+- hosts: all
+  become: true
+  tasks:
+    - name: Update package lists
+      apt:
+        update_cache: yes
+        state: present
+
+- hosts: master
+  become: true
+  tasks:
+    - name: Install LAMP stack dependencies (on Master)
+      script: /home/vagrant/deploy_lamp.sh
+
+    - name: Enable and restart Apache
+      service:
+        name: apache2
+        state: restarted
+
+- hosts: slave
+  become: true
+  tasks:
+    - name: Run Master's deployment script (to configure Slave)
+      script: /home/vagrant/deploy_lamp.sh
+
+    - name: Verify application accessibility (check public directory)
+      uri:
+        url: http://192.168.56.102/laravel/public/index.php
+        method: GET
+      register: response
+
+    - name: Check HTTP status code
+      assert:
+        that:
+          - response.status == 200
+        fail_msg: "Failed to access the application. HTTP status code: {{ response.status }}"
+
+    - name: Add cron job to check Uptime
+      cron:
+        name: Check server uptime
+        job: "/usr/bin/uptime >> /var/log/uptime.log"
+        minute: 0
+        hour: 0
