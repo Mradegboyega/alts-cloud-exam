@@ -3,42 +3,79 @@
 # Update package lists
 sudo apt update
 
+# Upgrade PHP to a newer version
+sudo apt install -y software-properties-common
+sudo add-apt-repository -y ppa:ondrej/php
+sudo apt update
+sudo apt install -y php8.3 php8.3-{mysql,xml,dom,curl}
+
+# Set non-interactive mode for package installation
+export DEBIAN_FRONTEND=noninteractive
+
 # Install LAMP stack dependencies
-sudo apt install -y apache2 mysql-server php libapache2-mod-php php-mysql git
+sudo apt install -y apache2 mysql-server git
 
 # Enable Apache modules
 sudo a2enmod rewrite
 
-# Clone the PHP application from GitHub (replace with your repository URL)
-git clone https://github.com/laravel/laravel.git /var/www/html/laravel
+# Install Composer (if not already installed)
+if ! command -v composer &> /dev/null
+then
+    # Download and install Composer
+    sudo php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
+    sudo php composer-setup.php --install-dir=/usr/local/bin --filename=composer
+    sudo rm composer-setup.php
+fi
 
-echo "repo cloned successfully"
+# Clone the PHP application from GitHub (replace with your repository URL)
+if [ ! -d "/var/www/html/laravel" ]; then
+    git clone https://github.com/laravel/laravel.git /var/www/html/laravel
+else
+    echo "Laravel directory already exists, skipping clone."
+fi
 
 # Set permissions
-chown -R www-data:www-data /var/www/html/laravel
-chmod -R 755 /var/www/html/laravel
+sudo chown -R www-data:www-data /var/www/html/laravel
+sudo chmod -R 755 /var/www/html/laravel
+
+# Set permissions for vendor directory
+sudo chmod -R 777 /var/www/html/laravel/vendor
+
+# Set permissions for storage/logs directory
+sudo chmod -R 777 /var/www/html/laravel/storage/logs
+
+# Set permissions for bootstrap/cache directory
+sudo chmod -R 777 /var/www/html/laravel/bootstrap/cache
+
+# Run composer install
+cd /var/www/html/laravel
+composer install
 
 # Configure Apache virtual host
-echo "<VirtualHost *:80>
+sudo tee /etc/apache2/sites-available/laravel.conf > /dev/null <<EOF
+<VirtualHost *:80>
   DocumentRoot /var/www/html/laravel/public
   <Directory /var/www/html/laravel/public>
     Options Indexes FollowSymLinks
     AllowOverride All
     Require all granted
   </Directory>
-</VirtualHost>" > /etc/apache2/sites-available/laravel.conf
+</VirtualHost>
+EOF
 
 # Enable the application virtual host configuration
-a2ensite laravel.conf
+sudo a2ensite laravel.conf
 
 # Restart Apache to apply changes
-systemctl restart apache2
+sudo systemctl restart apache2
 
 # Configure MySQL (optional: create a database and user)
-mysql -u root -e "CREATE DATABASE IF NOT EXISTS laravel_db;"
-mysql -u root -e "CREATE USER IF NOT EXISTS 'admin'@'localhost' IDENTIFIED BY 'admin';"
-mysql -u root -e "GRANT ALL PRIVILEGES ON laravel_db.* TO 'admin'@'localhost';"
-mysql -u root -e "FLUSH PRIVILEGES;"
+sudo mysql -u root <<MYSQL_SCRIPT
+CREATE DATABASE IF NOT EXISTS laravel_db;
+CREATE USER IF NOT EXISTS 'admin'@'localhost' IDENTIFIED BY 'admin';
+GRANT ALL PRIVILEGES ON laravel_db.* TO 'admin'@'localhost';
+FLUSH PRIVILEGES;
+MYSQL_SCRIPT
 
 # Display completion message
 echo "LAMP stack deployed successfully!"

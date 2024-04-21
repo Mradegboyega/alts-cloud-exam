@@ -11,7 +11,7 @@
   become: true
   tasks:
     - name: Install LAMP stack dependencies (on Master)
-      script: /home/vagrant/deploy_lamp.sh
+      script: /home/vagrant/alts-cloud-exam/deploy_lamp.sh
 
     - name: Enable and restart Apache
       service:
@@ -22,7 +22,7 @@
   become: true
   tasks:
     - name: Run Master's deployment script (to configure Slave)
-      script: /home/vagrant/deploy_lamp.sh
+      script: /home/vagrant/alts-cloud-exam/deploy_lamp.sh
 
     - name: Verify application accessibility (check public directory)
       uri:
